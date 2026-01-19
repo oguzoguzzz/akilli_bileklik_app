@@ -118,11 +118,9 @@ class SmsService {
 
 class SensorStore extends ChangeNotifier {
   int bpm = 0;
-  int? spo2;
   String hareketDurumu = 'GUVENLI';
   String nabizDurumu = 'NORMAL';
   String bpmAlarmStatus = 'NORMAL';
-  String spo2AlarmStatus = 'BILINMIYOR';
   BluetoothConnectionState connectionState =
       BluetoothConnectionState.disconnected;
   DateTime? lastUpdate;
@@ -191,7 +189,6 @@ class SensorStore extends ChangeNotifier {
               '${lastUpdate!.second.toString().padLeft(2, '0')}';
     final device = deviceName ?? deviceId ?? 'ESP32';
     final bpmText = bpm == 0 ? 'Nabız: yok' : 'Nabız: $bpm BPM';
-    final spo2Text = spo2 == null ? 'SpO2: yok' : 'SpO2: $spo2%';
     final hareketText = 'Hareket: $hareketDurumu';
     final nabizDurumText = 'Nabız Durumu: $nabizDurumu';
     final alertText = alerts.isEmpty
@@ -202,7 +199,6 @@ class SensorStore extends ChangeNotifier {
       'Cihaz: $device',
       last,
       bpmText,
-      spo2Text,
       hareketText,
       nabizDurumText,
       alertText,
@@ -217,22 +213,14 @@ class SensorStore extends ChangeNotifier {
     hareketDurumu = parts[1].trim();
     nabizDurumu = parts[2].trim();
     bpmAlarmStatus = nabizDurumu;
-    if (parts.length >= 4) {
-      final spo2Value = int.tryParse(parts[3].trim());
-      spo2 = (spo2Value == null || spo2Value < 0) ? null : spo2Value;
-    } else {
-      spo2 = null;
-    }
-    if (parts.length >= 8) {
-      mpuStatus = _mapStatus(parts[4].trim());
-      maxStatus = _mapStatus(parts[5].trim());
-      buttonStatus = _mapStatus(parts[6].trim());
-      spo2AlarmStatus = parts[7].trim();
+    if (parts.length >= 6) {
+      mpuStatus = _mapStatus(parts[3].trim());
+      maxStatus = _mapStatus(parts[4].trim());
+      buttonStatus = _mapStatus(parts[5].trim());
     } else {
       mpuStatus = 'Bilinmiyor';
       maxStatus = 'Bilinmiyor';
       buttonStatus = 'Bilinmiyor';
-      spo2AlarmStatus = 'BILINMIYOR';
     }
     lastUpdate = DateTime.now();
 
@@ -344,27 +332,6 @@ class SensorStore extends ChangeNotifier {
         break;
     }
 
-    switch (spo2AlarmStatus) {
-      case 'SPO2_DUSUK':
-        result.add(
-          _makeAlert(
-            'Oksijen Alarmi',
-            'Dusuk SpO2 algilandi',
-            AlertSeverity.high,
-          ),
-        );
-        break;
-      case 'SPO2_YUKSEK':
-        result.add(
-          _makeAlert(
-            'Oksijen Alarmi',
-            'Yuksek SpO2 algilandi',
-            AlertSeverity.medium,
-          ),
-        );
-        break;
-    }
-
     return result;
   }
 
@@ -458,36 +425,21 @@ class DashboardScreen extends StatelessWidget {
       animation: store,
       builder: (context, child) {
         final connectionText = switch (store.connectionState) {
-          BluetoothConnectionState.connected => 'BLE - Bağlandı',
-          _ => 'BLE - Hazır',
+          BluetoothConnectionState.connected => 'BLE - Baglandi',
+          _ => 'BLE - Hazir',
         };
         final lastUpdateText = store.lastUpdate == null
-            ? 'Son güncelleme: --'
-            : 'Son güncelleme: ${store.lastUpdate!.hour.toString().padLeft(2, '0')}:${store.lastUpdate!.minute.toString().padLeft(2, '0')}';
+            ? 'Son guncelleme: --'
+            : 'Son guncelleme: ${store.lastUpdate!.hour.toString().padLeft(2, '0')}:${store.lastUpdate!.minute.toString().padLeft(2, '0')}';
         final hareketLabel = switch (store.hareketDurumu) {
-          'DUSME_TESPIT' => 'Düşme',
+          'DUSME_TESPIT' => 'Dusme',
           'ACIL_BUTON' => 'Acil Buton',
           'HAREKETSIZ' => 'Hareketsiz',
-          _ => 'Güvenli',
+          _ => 'Guvenli',
         };
         final nabizLabel = store.bpm == 0 ? '--' : '${store.bpm}';
         final deviceLabel = store.deviceId ?? store.deviceName ?? 'ESP32';
-        final spo2Label = store.spo2 == null ? '--' : '${store.spo2}';
         final bpmAlarm = store.bpmAlarmStatus;
-        final spo2Alarm = store.spo2AlarmStatus;
-        final (spo2StatusText, spo2Tone) = switch (spo2Alarm) {
-          'SPO2_DUSUK' => ('Düşük', const Color(0xFFD64550)),
-          'SPO2_YUKSEK' => ('Yüksek', const Color(0xFFF08A4B)),
-          'BILINMIYOR' => ('Bilinmiyor', colors.outline),
-          _ =>
-            store.spo2 == null
-                ? ('Veri yok', colors.outline)
-                : ('Normal', const Color(0xFF2E9C6B)),
-        };
-        final spo2CardTone =
-            (spo2StatusText == 'Normal' || spo2StatusText == 'Veri yok')
-            ? const Color(0xFF3C7EA6)
-            : spo2Tone;
         final (nabizStatusText, nabizTone) = switch (bpmAlarm) {
           'YUKSEK_NABIZ' => ('Yuksek', const Color(0xFFD64550)),
           'DUSUK_NABIZ' => ('Dusuk', const Color(0xFFF08A4B)),
@@ -495,9 +447,8 @@ class DashboardScreen extends StatelessWidget {
           'BILINMIYOR' => ('Bilinmiyor', colors.outline),
           _ => ('Normal', const Color(0xFF2E9C6B)),
         };
-        final nabizCardTone = nabizStatusText == 'Normal'
-            ? const Color(0xFF8B6CBF)
-            : nabizTone;
+        final nabizCardTone =
+            nabizStatusText == 'Normal' ? const Color(0xFF8B6CBF) : nabizTone;
         final statusTitle = switch (store.hareketDurumu) {
           'DUSME_TESPIT' => 'Son durum: Dusme alarmi',
           'ACIL_BUTON' => 'Son durum: Acil buton',
@@ -506,11 +457,7 @@ class DashboardScreen extends StatelessWidget {
             'YUKSEK_NABIZ' => 'Son durum: Yuksek nabiz',
             'DUSUK_NABIZ' => 'Son durum: Dusuk nabiz',
             'PARMAK_YOK' => 'Son durum: Sensor temas yok',
-            _ => switch (spo2Alarm) {
-              'SPO2_DUSUK' => 'Son durum: Dusuk SpO2',
-              'SPO2_YUKSEK' => 'Son durum: Yuksek SpO2',
-              _ => 'Son durum: Stabil',
-            },
+            _ => 'Son durum: Stabil',
           },
         };
         final graphLabel = store.bpmHistory.isEmpty
@@ -522,9 +469,8 @@ class DashboardScreen extends StatelessWidget {
           'ACIL_BUTON' => 60.0,
           _ => 0.0,
         };
-        final nabizProgress = (bpmAlarm == 'NORMAL' || bpmAlarm == 'PARMAK_YOK')
-            ? 0.0
-            : 1.0;
+        final nabizProgress =
+            (bpmAlarm == 'NORMAL' || bpmAlarm == 'PARMAK_YOK') ? 0.0 : 1.0;
 
         return DecoratedBox(
           decoration: const BoxDecoration(
@@ -539,15 +485,15 @@ class DashboardScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
               children: [
                 const HeaderRow(
-                  title: 'Akıllı Bileklik',
-                  subtitle: 'Gerçek zamanlı sağlık takibi',
+                  title: 'Akilli Bileklik',
+                  subtitle: 'Gercek zamanli saglik takibi',
                 ),
                 const SizedBox(height: 18),
                 Row(
                   children: [
                     Expanded(
                       child: StatusCard(
-                        label: 'Bağlantı',
+                        label: 'Baglanti',
                         value: connectionText,
                         icon: Icons.bluetooth_connected,
                         tone: StatusTone.ok,
@@ -568,10 +514,7 @@ class DashboardScreen extends StatelessWidget {
                             color: colors.primary.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(
-                            Icons.local_hospital,
-                            color: colors.primary,
-                          ),
+                          child: Icon(Icons.local_hospital, color: colors.primary),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -606,7 +549,7 @@ class DashboardScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: MetricCard(
-                        title: 'Nabız',
+                        title: 'Nabiz',
                         value: nabizLabel,
                         unit: 'BPM',
                         icon: Icons.favorite,
@@ -619,25 +562,6 @@ class DashboardScreen extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: MetricCard(
-                        title: 'Oksijen',
-                        value: spo2Label,
-                        unit: '%SpO2',
-                        icon: Icons.water_drop,
-                        color: spo2CardTone,
-                        min: 80,
-                        max: 200,
-                        current: (store.spo2 ?? 0).toDouble().clamp(0, 100),
-                        statusText: spo2StatusText,
-                        statusColor: spo2Tone,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: MetricCard(
                         title: 'Aktivite',
                         value: hareketLabel,
                         unit: store.hareketDurumu,
@@ -648,10 +572,14 @@ class DashboardScreen extends StatelessWidget {
                         current: activityProgress,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
                     Expanded(
                       child: MetricCard(
-                        title: 'Nabız Durumu',
+                        title: 'Nabiz Durumu',
                         value: store.bpmAlarmStatus,
                         unit: 'Durum',
                         icon: Icons.warning_amber_rounded,
@@ -667,7 +595,7 @@ class DashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 const SectionTitle(
-                  title: 'Canlı Nabız Grafiği',
+                  title: 'Canli Nabiz Grafigi',
                   actionText: 'Detay',
                 ),
                 const SizedBox(height: 12),
@@ -693,7 +621,7 @@ class DashboardScreen extends StatelessWidget {
                         const SizedBox(height: 12),
                         Expanded(
                           child: CustomPaint(
-                            painter: BpmChartPainter(store.bpmHistory),
+                            painter: BpmChartPainter(values: store.bpmHistory),
                             child: const SizedBox.expand(),
                           ),
                         ),
@@ -702,7 +630,7 @@ class DashboardScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const SectionTitle(title: 'Hızlı İşlemler'),
+                const SectionTitle(title: 'Hizli Islemler'),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -710,17 +638,18 @@ class DashboardScreen extends StatelessWidget {
                       child: FilledButton.icon(
                         onPressed: store.addTestAlert,
                         icon: const Icon(Icons.sos),
-                        label: const Text('Test Uyarısı'),
+                        label: const Text('Test Uyarisi'),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () async {
-                          await Share.share(store.buildReport());
+                          final report = store.buildReport();
+                          await Share.share(report, subject: 'Akilli bileklik raporu');
                         },
                         icon: const Icon(Icons.share),
-                        label: const Text('Rapor Paylaş'),
+                        label: const Text('Rapor Paylas'),
                       ),
                     ),
                   ],
@@ -751,7 +680,7 @@ class AlertsScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
             children: [
               const HeaderRow(
-                title: 'Uyarı Merkezi',
+                title: 'Uyari Merkezi',
                 subtitle: 'Son alarmlar ve bildirim durumu',
               ),
               const SizedBox(height: 16),
@@ -765,7 +694,7 @@ class AlertsScreen extends StatelessWidget {
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Text(
-                          'Uyarılar SMS, anlık bildirim ve Çağrı olarak gönderilir.',
+                          'Uyarilar SMS, anlik bildirim ve cagri olarak gonderilir.',
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -781,46 +710,13 @@ class AlertsScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              const SectionTitle(title: 'Gönderim Durumu', actionText: 'Log'),
-              const SizedBox(height: 12),
-              Row(
-                children: const [
-                  Expanded(
-                    child: StatusCard(
-                      label: 'SMS',
-                      value: 'Basarili',
-                      icon: Icons.sms_outlined,
-                      tone: StatusTone.ok,
-                    ),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: StatusCard(
-                      label: 'Bildirim',
-                      value: 'Basarili',
-                      icon: Icons.notifications_active_outlined,
-                      tone: StatusTone.ok,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const StatusCard(
-                label: 'Çağrı',
-                value: 'Yedek listesi aktif',
-                icon: Icons.call_outlined,
-                tone: StatusTone.info,
-              ),
-              const SizedBox(height: 16),
               const SectionTitle(title: 'Son Alarmlar'),
               const SizedBox(height: 12),
-              if (alerts.isEmpty) const Text('Henüz bir alarm yok.'),
-              ...alerts.map(
-                (alert) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: AlertCard(item: alert),
-                ),
-              ),
+              if (alerts.isEmpty) const Text('Henuz bir alarm yok.'),
+              ...alerts.map((alert) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: AlertCard(item: alert),
+                  )),
             ],
           ),
         );
@@ -839,60 +735,39 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  late final TextEditingController _smsController;
   late final TextEditingController _bpmLowController;
   late final TextEditingController _bpmHighController;
-  late final TextEditingController _spo2LowController;
-  late final TextEditingController _spo2HighController;
   late final TextEditingController _immobileController;
   late final TextEditingController _fallGController;
   late final TextEditingController _motionController;
+  late final TextEditingController _smsController;
   bool _smsEnabled = false;
 
   @override
   void initState() {
     super.initState();
-    _smsController = TextEditingController(text: widget.store.smsNumber);
-    _smsEnabled = widget.store.smsEnabled;
     _bpmLowController = TextEditingController(text: '40');
     _bpmHighController = TextEditingController(text: '120');
-    _spo2LowController = TextEditingController(text: '80');
-    _spo2HighController = TextEditingController(text: '100');
     _immobileController = TextEditingController(text: '60');
     _fallGController = TextEditingController(text: '25.0');
     _motionController = TextEditingController(text: '1.0');
+    _smsController = TextEditingController(text: widget.store.smsNumber);
+    _smsEnabled = widget.store.smsEnabled;
   }
 
   @override
   void dispose() {
-    _smsController.dispose();
     _bpmLowController.dispose();
     _bpmHighController.dispose();
-    _spo2LowController.dispose();
-    _spo2HighController.dispose();
     _immobileController.dispose();
     _fallGController.dispose();
     _motionController.dispose();
+    _smsController.dispose();
     super.dispose();
   }
 
-  Future<void> _callEmergency() async {
-    final uri = Uri(scheme: 'tel', path: '112');
-    final canLaunch = await canLaunchUrl(uri);
-    if (!mounted) return;
-    if (canLaunch) {
-      await launchUrl(uri);
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Arama baslatilamadi.')));
-    }
-  }
-
   void _showSnack(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<String?> _sendThresholds() async {
@@ -903,8 +778,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final bpmLow = int.tryParse(_bpmLowController.text) ?? 40;
     final bpmHigh = int.tryParse(_bpmHighController.text) ?? 120;
-    final spo2Low = int.tryParse(_spo2LowController.text) ?? 80;
-    final spo2High = int.tryParse(_spo2HighController.text) ?? 100;
     final immobileMinutes = int.tryParse(_immobileController.text) ?? 60;
     final immobileSeconds = immobileMinutes * 60;
     final fallG = double.tryParse(_fallGController.text) ?? 25.0;
@@ -913,8 +786,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final payload =
         'bpm_low=$bpmLow,'
         'bpm_high=$bpmHigh,'
-        'spo2_low=$spo2Low,'
-        'spo2_high=$spo2High,'
         'immobile_sec=$immobileSeconds,'
         'fall_g=$fallG,'
         'motion_th=$motionThreshold';
@@ -938,6 +809,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return 'Esik karakteristigi bulunamadi.';
   }
 
+  Future<void> _callEmergency() async {
+    final uri = Uri(scheme: 'tel', path: '112');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -946,8 +824,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
         children: [
           const HeaderRow(
-            title: 'E\u015fik Ayarlar\u0131',
-            subtitle: 'Alarm parametrelerini \u00f6zelle\u015ftir',
+            title: 'Esik Ayarlari',
+            subtitle: 'Alarm parametrelerini ozellestir',
           ),
           const SizedBox(height: 16),
           Card(
@@ -958,7 +836,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Nab\u0131z Limitleri (BPM)',
+                    'Nabiz Limitleri (BPM)',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
@@ -974,34 +852,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: ThresholdField(
-                          label: 'Üst Limit',
+                          label: 'Ust Limit',
                           controller: _bpmHighController,
                           value: '120',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Oksijen Sat. Limitleri (%)',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ThresholdField(
-                          label: 'Alt Limit',
-                          controller: _spo2LowController,
-                          value: '80',
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ThresholdField(
-                          label: 'Üst Limit',
-                          controller: _spo2HighController,
-                          value: '100',
                         ),
                       ),
                     ],
@@ -1018,7 +871,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Hareketsizlik Süresi',
+                    'Hareketsizlik Suresi',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
@@ -1032,7 +885,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Expanded(
                         child: ThresholdField(
-                          label: 'D\u00fc\u015fme e\u015fi\u011fi (g)',
+                          label: 'Dusme esigi (g)',
                           controller: _fallGController,
                           value: '25.0',
                         ),
@@ -1040,7 +893,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: ThresholdField(
-                          label: 'Hareket e\u015fi\u011fi',
+                          label: 'Hareket esigi',
                           controller: _motionController,
                           value: '1.0',
                         ),
@@ -1048,31 +901,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Expanded(child: Text('Düşme hassasiyeti')),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colors.secondaryContainer,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          'Yüksek',
-                          style: TextStyle(
-                            color: colors.onSecondaryContainer,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
                   const Text(
-                    'Not: Algoritma, ani ivme + hareketsizlik kriterlerini kullanır.',
+                    'Not: Algoritma, ani ivme + hareketsizlik kriterlerini kullanir.',
                     style: TextStyle(color: Color(0xFF6F7D80)),
                   ),
                 ],
@@ -1083,8 +913,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SectionTitle(title: 'Bildirim Tercihleri'),
           const SizedBox(height: 12),
           const PreferenceTile(
-            title: 'Anlık bildirim',
-            subtitle: 'Mobil cihaz üzerine bildirim gönder',
+            title: 'Anlik bildirim',
+            subtitle: 'Mobil cihaz uzerine bildirim gonder',
             value: true,
           ),
           const SizedBox(height: 8),
@@ -1095,7 +925,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'SMS Uyarı Ayarı',
+                    'SMS Uyari Ayari',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
@@ -1105,9 +935,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onChanged: (value) {
                       setState(() => _smsEnabled = value);
                     },
-                    title: const Text('SMS uyarısı'),
+                    title: const Text('SMS uyarisi'),
                     subtitle: const Text(
-                      'Sorun algılanınca otomatik SMS gönder',
+                      'Sorun algilaninca otomatik SMS gonder',
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1115,7 +945,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     controller: _smsController,
                     keyboardType: TextInputType.phone,
                     decoration: InputDecoration(
-                      labelText: 'Telefon numarası',
+                      labelText: 'Telefon numarasi',
                       hintText: '+90...',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -1136,7 +966,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   const Expanded(
                     child: Text(
-                      'Acil Çağrı (112)',
+                      'Acil Cagri (112)',
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -1163,7 +993,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   : 'SMS ayarlari kaydedildi. $error';
               _showSnack(message);
             },
-            child: const Text('Kaydet ve Bilekliğe Gönder'),
+            child: const Text('Kaydet ve Bileklige Gonder'),
           ),
         ],
       ),
@@ -1341,10 +1171,7 @@ class _DeviceScreenState extends State<DeviceScreen> {
         final alertActive =
             widget.store.hareketDurumu != 'GUVENLI' ||
             (widget.store.bpmAlarmStatus != 'NORMAL' &&
-                widget.store.bpmAlarmStatus != 'PARMAK_YOK') ||
-            (widget.store.spo2AlarmStatus != 'NORMAL' &&
-                widget.store.spo2AlarmStatus != 'VERI_YOK' &&
-                widget.store.spo2AlarmStatus != 'BILINMIYOR');
+                widget.store.bpmAlarmStatus != 'PARMAK_YOK');
         final alertText = alertActive ? 'Aktif' : 'Hazır';
         final alertTone = alertActive ? StatusTone.warning : StatusTone.ok;
         final deviceLabel =

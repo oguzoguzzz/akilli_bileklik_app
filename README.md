@@ -10,8 +10,8 @@ Flutter ile geliştirilmiş, ESP32 tabanlı giyilebilir cihazdan BLE ile veri al
 
 ## Özellikler
 - BLE cihaz tarama ve bağlanma
-- Gerçek zamanlı veri gösterimi (BPM, SpO2, hareket durumu)
-- Alarm uyarıları (düşme, hareketsizlik, nabız, SpO2)
+- Gerçek zamanlı veri gösterimi (BPM, hareket durumu)
+- Alarm uyarıları (düşme, hareketsizlik, nabız)
 - Bildirim gönderimi (yerel bildirim)
 - SMS uyarısı (Android, izinlere bağlı)
 - Rapor paylaşımı (metin olarak)
@@ -28,18 +28,16 @@ Uygulama, sadece belirli servis UUID'sini taşıyan cihazları listeler ve bağl
 ### Veri Paketi Formatı
 ESP32 -> Uygulama, tek satır CSV paket gönderir:
 
-BPM,HAREKET,BPM_ALARM,SPO2,MPU,MAX,BUTTON,SPO2_ALARM
+BPM,HAREKET,BPM_ALARM,MPU,MAX,BUTTON
 
 Örnek:
-72,GUVENLI,NORMAL,97,OK,OK,OK,NORMAL
+72,GUVENLI,NORMAL,OK,OK,OK
 
 Alanlar:
 - BPM: Nabız (int)
 - HAREKET: GUVENLI, DUSME_TESPIT, HAREKETSIZ, ACIL_BUTON
 - BPM_ALARM: NORMAL, YUKSEK_NABIZ, DUSUK_NABIZ, PARMAK_YOK
-- SPO2: Oksijen yüzdesi (int, -1 ise veri yok)
 - MPU/MAX/BUTTON: OK, ERR, UNKNOWN
-- SPO2_ALARM: NORMAL, SPO2_DUSUK, SPO2_YUKSEK, BILINMIYOR
 
 Uygulama paketi 8 alan olarak bekler. Daha kısa paket gelirse sensör durumları "Bilinmiyor"a çekilir.
 
@@ -75,4 +73,3 @@ ESP32 bu değerleri okuyup dinamik eşik olarak kullanır.
 
 ## Notlar
 - BLE tarama servis UUID filtresi ile yapılır.
-- SpO2 ve BPM alarmları aynı anda üretilebilir.
