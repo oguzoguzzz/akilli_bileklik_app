@@ -621,7 +621,7 @@ class DashboardScreen extends StatelessWidget {
                         const SizedBox(height: 12),
                         Expanded(
                           child: CustomPaint(
-                            painter: BpmChartPainter(values: store.bpmHistory),
+                            painter: BpmChartPainter(store.bpmHistory),
                             child: const SizedBox.expand(),
                           ),
                         ),
