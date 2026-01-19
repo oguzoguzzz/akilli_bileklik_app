@@ -12,9 +12,9 @@ import 'package:share_plus/share_plus.dart';
 import 'package:telephony/telephony.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-const String kServiceUuid = 'a7891ebe-a10f-479b-924c-a908c4a7cbca';
-const String kDataCharUuid = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
-const String kConfigCharUuid = '6a9c0001-1fb5-459e-8fcc-c5c9c331914b';
+const String kServiceUuid = 'e56bca45-34f6-40df-b3eb-56e1977168b5';
+const String kDataCharUuid = '0976d181-f522-45c1-b181-5d3bdfeba757';
+const String kConfigCharUuid = '43b2c861-c4f8-45df-ae11-7d363fd94c3c';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -119,7 +119,6 @@ class SmsService {
 class SensorStore extends ChangeNotifier {
   int bpm = 0;
   int? spo2;
-  int? battery;
   String hareketDurumu = 'GUVENLI';
   String nabizDurumu = 'NORMAL';
   String bpmAlarmStatus = 'NORMAL';
@@ -136,7 +135,6 @@ class SensorStore extends ChangeNotifier {
   String mpuStatus = 'Bilinmiyor';
   String maxStatus = 'Bilinmiyor';
   String buttonStatus = 'Bilinmiyor';
-  String chargeStatus = 'Bilinmiyor';
   bool smsEnabled = false;
   String smsNumber = '';
 
@@ -194,7 +192,6 @@ class SensorStore extends ChangeNotifier {
     final device = deviceName ?? deviceId ?? 'ESP32';
     final bpmText = bpm == 0 ? 'Nabız: yok' : 'Nabız: $bpm BPM';
     final spo2Text = spo2 == null ? 'SpO2: yok' : 'SpO2: $spo2%';
-    final batteryText = battery == null ? 'Pil: yok' : 'Pil: %$battery';
     final hareketText = 'Hareket: $hareketDurumu';
     final nabizDurumText = 'Nabız Durumu: $nabizDurumu';
     final alertText = alerts.isEmpty
@@ -206,7 +203,6 @@ class SensorStore extends ChangeNotifier {
       last,
       bpmText,
       spo2Text,
-      batteryText,
       hareketText,
       nabizDurumText,
       alertText,
@@ -221,28 +217,22 @@ class SensorStore extends ChangeNotifier {
     hareketDurumu = parts[1].trim();
     nabizDurumu = parts[2].trim();
     bpmAlarmStatus = nabizDurumu;
-    spo2AlarmStatus = parts.length >= 10 ? parts[9].trim() : 'BILINMIYOR';
-    if (parts.length >= 5) {
+    if (parts.length >= 4) {
       final spo2Value = int.tryParse(parts[3].trim());
-      final batteryValue = int.tryParse(parts[4].trim());
       spo2 = (spo2Value == null || spo2Value < 0) ? null : spo2Value;
-      battery = (batteryValue == null || batteryValue < 0)
-          ? null
-          : batteryValue;
     } else {
       spo2 = null;
-      battery = null;
     }
-    if (parts.length >= 9) {
-      mpuStatus = _mapStatus(parts[5].trim());
-      maxStatus = _mapStatus(parts[6].trim());
-      buttonStatus = _mapStatus(parts[7].trim());
-      chargeStatus = _mapCharge(parts[8].trim());
+    if (parts.length >= 8) {
+      mpuStatus = _mapStatus(parts[4].trim());
+      maxStatus = _mapStatus(parts[5].trim());
+      buttonStatus = _mapStatus(parts[6].trim());
+      spo2AlarmStatus = parts[7].trim();
     } else {
       mpuStatus = 'Bilinmiyor';
       maxStatus = 'Bilinmiyor';
       buttonStatus = 'Bilinmiyor';
-      chargeStatus = 'Bilinmiyor';
+      spo2AlarmStatus = 'BILINMIYOR';
     }
     lastUpdate = DateTime.now();
 
@@ -291,16 +281,6 @@ class SensorStore extends ChangeNotifier {
     }
   }
 
-  String _mapCharge(String value) {
-    switch (value) {
-      case 'CHARGING':
-        return 'Şarjda';
-      case 'DISCHARGING':
-        return 'Normal';
-      default:
-        return 'Bilinmiyor';
-    }
-  }
 
   void _sendSmsIfNeeded(AlertItem alert) {
     if (!smsEnabled) return;
@@ -491,7 +471,6 @@ class DashboardScreen extends StatelessWidget {
           _ => 'Güvenli',
         };
         final nabizLabel = store.bpm == 0 ? '--' : '${store.bpm}';
-        final batteryText = store.battery == null ? '--' : '%${store.battery}';
         final deviceLabel = store.deviceId ?? store.deviceName ?? 'ESP32';
         final spo2Label = store.spo2 == null ? '--' : '${store.spo2}';
         final bpmAlarm = store.bpmAlarmStatus;
@@ -572,15 +551,6 @@ class DashboardScreen extends StatelessWidget {
                         value: connectionText,
                         icon: Icons.bluetooth_connected,
                         tone: StatusTone.ok,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: StatusCard(
-                        label: 'Pil Seviyesi',
-                        value: batteryText,
-                        icon: Icons.battery_charging_full,
-                        tone: StatusTone.info,
                       ),
                     ),
                   ],
@@ -1431,10 +1401,6 @@ class _DeviceScreenState extends State<DeviceScreen> {
                           InfoChip(
                             label: 'Acil Buton',
                             value: widget.store.buttonStatus,
-                          ),
-                          InfoChip(
-                            label: 'TP4056',
-                            value: widget.store.chargeStatus,
                           ),
                         ],
                       ),
