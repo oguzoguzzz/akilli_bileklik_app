@@ -66,7 +66,7 @@ ESP32 bu değerleri okuyup dinamik eşik olarak kullanır.
 - flutter build apk --release
 
 ## Test
-- Gerçek cihaz üzerinde BLE testi yapın (emülatör BLE taramayı desteklemeyebilir).
+- Gerçek cihaz üzerinde BLE testi yapın.
 - nRF Connect / LightBlue ile servis UUID'si yayıp paket gönderebilirsiniz.
 
 ## Dizin Yapısı
@@ -76,4 +76,3 @@ ESP32 bu değerleri okuyup dinamik eşik olarak kullanır.
 ## Notlar
 - BLE tarama servis UUID filtresi ile yapılır.
 - SpO2 ve BPM alarmları aynı anda üretilebilir.
-- Uygulama metinleri UTF-8 Türkçe karakterlerle güncellenmiştir.
