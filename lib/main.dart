@@ -1077,15 +1077,10 @@ class _DeviceScreenState extends State<DeviceScreen> {
     await FlutterBluePlus.stopScan();
     _scanSub?.cancel();
     _scanSub = FlutterBluePlus.scanResults.listen((results) {
-      final serviceId = Guid(kServiceUuid);
-      final filtered = results.where((result) {
-        final uuids = result.advertisementData.serviceUuids;
-        return uuids.any((uuid) => uuid == serviceId);
-      }).toList();
       setState(() {
         _scanResults
           ..clear()
-          ..addAll(filtered);
+          ..addAll(results);
       });
     });
 
